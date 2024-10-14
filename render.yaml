@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: voice-recorder-app1
+    env: python
+    plan: free
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "python app/app.py"
+    envVars:
+      - key: FLASK_ENV
+        value: "production"
+      - key: OPENAI_API_KEY
+        sync: true
+      - key: SECRET_KEY
+        sync: true

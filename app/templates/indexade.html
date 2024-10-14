@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Q.Buddy for FeedBack</title>
+    <style>
+        body { font-family: Arial, sans-serif; }
+        #feedback { margin-top: 20px; }
+        button { margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <h1>Voice Recorder App</h1>
+    <form id="audioForm" action="/upload" method="post" enctype="multipart/form-data">
+        <label for="name">Name:</label><br>
+        <input type="text" name="name" required><br>
+        <label for="college">College:</label><br>
+        <input type="text" name="college" required><br>
+        <label for="passout">Passout Year:</label><br>
+        <input type="number" name="passout" required><br><br>
+        
+        <button type="button" onclick="startRecording()">Start Recording</button>
+        <button type="button" onclick="stopRecording()" disabled>Stop Recording</button><br>
+        <audio id="audioPlayback" controls></audio><br>
+        
+        <button type="button" onclick="submitForm()">Submit</button>
+    </form>
+
+    <div id="feedback"></div>
+
+    <script>
+        let mediaRecorder;
+        let audioChunks = [];
+
+        async function startRecording() {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream);
+            
+            mediaRecorder.ondataavailable = event => {
+                audioChunks.push(event.data);
+            };
+
+            mediaRecorder.onstop = () => {
+                const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                const audioUrl = URL.createObjectURL(audioBlob);
+                document.getElementById("audioPlayback").src = audioUrl;
+
+                // Enable submit button after recording stops
+                document.querySelector("button[onclick='submitForm()']").disabled = false;
+            };
+
+            mediaRecorder.start();
+            document.querySelector("button[onclick='stopRecording()']").disabled = false;
+            document.querySelector("button[onclick='startRecording()']").disabled = true;
+        }
+
+        function stopRecording() {
+            mediaRecorder.stop();
+            document.querySelector("button[onclick='stopRecording()']").disabled = true;
+            document.querySelector("button[onclick='startRecording()']").disabled = false;
+        }
+
+        async function submitForm() {
+            const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+            
+            const formData = new FormData();
+            formData.append("audio_data", audioBlob, "recorded_audio.wav");
+            formData.append("name", document.querySelector('input[name="name"]').value);
+            formData.append("college", document.querySelector('input[name="college"]').value);
+            formData.append("passout", document.querySelector('input[name="passout"]').value);
+
+            console.log([...formData.entries()]);  // Debugging: log formData contents
+
+            const response = await fetch('/upload', {
+                method: 'POST',
+                body: formData
+            });
+
+            const result = await response.json();
+            displayFeedback(result);
+        }
+
+        function displayFeedback(data) {
+            const feedbackDiv = document.getElementById("feedback");
+            feedbackDiv.innerHTML = `
+                <h2>Feedback</h2>
+                <p><strong>Transcription:</strong> ${data.transcription || "N/A"}</p>
+                <p><strong>Sentiment:</strong> ${data.sentiment || "N/A"}</p>
+                <p><strong>Feedback:</strong> ${data.feedback || "N/A"}</p>
+                <p><strong>Audio Features:</strong> ${JSON.stringify(data.audio_features || {})}</p>
+            `;
+        }
+    </script>
+</body>
+</html>
+

@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Q.Buddy for FeedBack</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: url('/static/images/background-image.jpg') no-repeat center center;
+            background-size: cover;
+            background-attachment: scroll;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+            color: #333;
+        }
+
+        #chatbotWindow {
+            display: none; /* Hidden initially */
+            background-color: rgba(255, 255, 255, 0.9);
+            border-radius: 10px;
+            box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.2);
+            width: 80%;
+            max-width: 400px;
+            padding: 20px;
+            text-align: center;
+            animation: fadeIn 1s ease-in-out forwards;
+        }
+
+        h1 {
+            color: #4a4a4a;
+        }
+
+        button {
+            margin: 10px 0;
+            padding: 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        button:disabled {
+            background-color: #9E9E9E;
+        }
+
+        button:hover:not(:disabled) {
+            background-color: #45a049;
+        }
+
+        #audioPlayback {
+            margin-top: 10px;
+            width: 100%;
+        }
+
+        #feedback {
+            margin-top: 20px;
+            font-size: 14px;
+            color: #4a4a4a;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <div id="chatbotWindow">
+        <h1>Q.Buddy for FeedBack</h1>
+        <form id="audioForm" action="/upload" method="post" enctype="multipart/form-data">
+            <label for="name">Name:</label><br>
+            <input type="text" name="name" required><br>
+            <label for="college">College:</label><br>
+            <input type="text" name="college" required><br>
+            <label for="passout">Passout Year:</label><br>
+            <input type="number" name="passout" required><br><br>
+            
+            <button type="button" onclick="startRecording()">Start Recording</button>
+            <button type="button" onclick="stopRecording()" disabled>Stop Recording</button><br>
+            <audio id="audioPlayback" controls></audio><br>
+            
+            <button type="button" onclick="submitForm()">Submit</button>
+        </form>
+
+        <div id="feedback"></div>
+    </div>
+
+    <script>
+        let mediaRecorder;
+        let audioChunks = [];
+
+        // Display the chatbot window after a delay
+        window.onload = function() {
+            setTimeout(function() {
+                document.getElementById("chatbotWindow").style.display = 'block';
+            }, 7000); // 7 seconds delay
+        };
+
+        async function startRecording() {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream);
+            
+            mediaRecorder.ondataavailable = event => {
+                audioChunks.push(event.data);
+            };
+
+            mediaRecorder.onstop = () => {
+                const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                const audioUrl = URL.createObjectURL(audioBlob);
+                document.getElementById("audioPlayback").src = audioUrl;
+
+                // Enable submit button after recording stops
+                document.querySelector("button[onclick='submitForm()']").disabled = false;
+            };
+
+            mediaRecorder.start();
+            document.querySelector("button[onclick='stopRecording()']").disabled = false;
+            document.querySelector("button[onclick='startRecording()']").disabled = true;
+        }
+
+        function stopRecording() {
+            mediaRecorder.stop();
+            document.querySelector("button[onclick='stopRecording()']").disabled = true;
+            document.querySelector("button[onclick='startRecording()']").disabled = false;
+        }
+
+        async function submitForm() {
+            const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+            
+            const formData = new FormData();
+            formData.append("audio_data", audioBlob, "recorded_audio.wav");
+            formData.append("name", document.querySelector('input[name="name"]').value);
+            formData.append("college", document.querySelector('input[name="college"]').value);
+            formData.append("passout", document.querySelector('input[name="passout"]').value);
+
+            console.log([...formData.entries()]);  // Debugging: log formData contents
+
+            const response = await fetch('/upload', {
+                method: 'POST',
+                body: formData
+            });
+
+            const result = await response.json();
+            displayFeedback(result);
+        }
+
+        function displayFeedback(data) {
+            const feedbackDiv = document.getElementById("feedback");
+            feedbackDiv.innerHTML = `
+                <h2>Feedback</h2>
+                <p><strong>Transcription:</strong> ${data.transcription || "N/A"}</p>
+                <p><strong>Sentiment:</strong> ${data.sentiment || "N/A"}</p>
+                <p><strong>Feedback:</strong> ${data.feedback || "N/A"}</p>
+                <p><strong>Audio Features:</strong> ${JSON.stringify(data.audio_features || {})}</p>
+            `;
+        }
+    </script>
+</body>
+</html>
+
