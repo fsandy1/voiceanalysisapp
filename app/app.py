@@ -52,8 +52,16 @@ def init_db():
 init_db()
 
 @app.route('/')
-def index():
-    return render_template("index.html")
+def home():
+    return render_template('index.html')
+
+@app.route('/feedback')
+def feedback():
+    return render_template('feedback.html')
+
+@app.route('/interview_prep')
+def interview_prep():
+    return render_template('interview_prep.html')
 
 @app.route('/upload', methods=['POST'])
 def upload_audio():
@@ -64,14 +72,12 @@ def upload_audio():
     if 'audio_data' not in request.files:
         return jsonify({"error": "No audio data uploaded"}), 400
 
-
     audio_file = request.files['audio_data']
     name = request.form['name']
     college = request.form['college']
     passout = int(request.form['passout'])
 
     # Save audio file locally
-    audio_file = request.files['audio_data']
     file_name = f"{uuid.uuid4()}.wav"
     audio_path = os.path.join("uploads", file_name)
     audio_file.save(audio_path)
@@ -91,11 +97,32 @@ def upload_audio():
     # Save to SQLite Database
     save_to_database(name, college, passout, transcription_text, sentiment, feedback, audio_features)
 
+    # Convert audio features dictionary to an HTML table
+    audio_features_table = """
+    <div style="display: flex; justify-content: center;">
+        <table border="1" cellpadding="10" cellspacing="0">
+            <tr><th>Feature</th><th>Value</th><th>Interpretation</th></tr>
+            <tr><td>Average Pitch</td><td>{:.2f}</td><td>The average frequency of sound, indicating how high or low the sound is.</td></tr>
+            <tr><td>Mean Energy</td><td>{:.3f}</td><td>The average amplitude of sound, reflecting overall loudness.</td></tr>
+            <tr><td>Energy</td><td>{:.3f}</td><td>Overall intensity of the sound, which can indicate emphasis or volume.</td></tr>
+            <tr><td>Spectral Centroid</td><td>{:.2f}</td><td>Center of the sound spectrum, giving a sense of the brightness of the sound.</td></tr>
+            <tr><td>Tempo</td><td>{:.2f}</td><td>The speed of the audio, measured in beats per minute.</td></tr>
+        </table>
+   </div>
+   """.format(
+        audio_features.get("average_pitch", 0),
+        audio_features.get("mean_energy", 0),
+        audio_features.get("energy", 0),
+        audio_features.get("spectral_centroid", 0),
+        audio_features.get("tempo", 0)
+    )
+    audio_features_table = audio_features_table.replace('\n', '')
+    audio_features_table = audio_features_table.replace('"', '')
     return jsonify({
         'transcription': transcription_text,
         'sentiment': sentiment,
         'feedback': feedback,
-        'audio_features': audio_features
+        'audio_features': audio_features_table  # Send as an HTML table string
     })
 
 def analyze_audio(audio_path):
@@ -153,6 +180,25 @@ def generate_feedback(transcription_text, sentiment):
     feedback = response['choices'][0]['message']['content']
     return feedback
 
+# Endpoint for Interview Prep to get a response from OpenAI
+@app.route('/ask_openai', methods=['POST'])
+def ask_openai():
+    data = request.get_json()
+    question = data.get('question')
+
+    # Use OpenAI API to get the response
+    response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=[
+            {"role": "system", "content": "You are a interview preparation assistanthelping to assist for preparing a job at Quantium"},
+            {"role": "user", "content": question}
+        ],
+        max_tokens=100
+    )
+
+    answer = response['choices'][0]['message']['content'].strip()
+    return jsonify({"answer": answer})
+
 def save_to_database(name, college, passout, transcription, sentiment, feedback, audio_features):
     conn = sqlite3.connect(DATABASE)
     cursor = conn.cursor()
@@ -169,3 +215,4 @@ def save_to_database(name, college, passout, transcription, sentiment, feedback,
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
+

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Q.Buddy by Quantium</title>
+    <title>Q.Buddy for Interview Prep</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -20,7 +20,7 @@
             color: #333;
         }
 
-        #optionsContainer {
+        #chatbotWindow {
             background-color: rgba(255, 255, 255, 0.9);
             border-radius: 10px;
             box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.2);
@@ -38,7 +38,6 @@
         button {
             margin: 10px 0;
             padding: 10px;
-            width: 80%;
             background-color: #4CAF50;
             color: white;
             border: none;
@@ -50,6 +49,12 @@
             background-color: #45a049;
         }
 
+        #feedback {
+            margin-top: 20px;
+            font-size: 14px;
+            color: #4a4a4a;
+        }
+
         @keyframes fadeIn {
             from { opacity: 0; }
             to { opacity: 1; }
@@ -57,12 +62,27 @@
     </style>
 </head>
 <body>
-    <div id="optionsContainer">
-        <h1>Welcome to Q.Buddy</h1>
-        <p>Select an option:</p>
-        <button onclick="window.location.href='/feedback'">Q.Buddy for Communication Feedback</button>
-        <button onclick="window.location.href='/interview_prep'">Q.Buddy for Interview Prep</button>
+    <div id="chatbotWindow">
+        <h1>Q.Buddy for Interview Prep</h1>
+        <!-- Home button -->
+        <button onclick="window.location.href='/'" style="margin-top: 10px;">Home</button>
+        <textarea id="userInput" rows="4" style="width: 100%;" placeholder="Ask your question..."></textarea><br>
+        <button onclick="askQuestion()">Ask</button>
+        <div id="feedback"></div>
     </div>
+
+    <script>
+        async function askQuestion() {
+            const userInput = document.getElementById("userInput").value;
+            const response = await fetch('/ask_openai', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ question: userInput })
+            });
+            const data = await response.json();
+            document.getElementById("feedback").innerHTML = `<p><strong>Response:</strong> ${data.answer}</p>`;
+        }
+    </script>
 </body>
 </html>
 
