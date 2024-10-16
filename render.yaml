@@ -4,7 +4,7 @@ services:
     env: python
     plan: free
     buildCommand: |
-      sudo apt install -y python3-pyaudio portaudio19-dev
+      apt-get update && apt-get install -y portaudio19-dev
       pip install -r requirements.txt
     startCommand: "python app/app.py"
     envVars:
